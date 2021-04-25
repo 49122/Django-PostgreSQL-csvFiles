@@ -1,21 +1,22 @@
-# UTILIZA LOS DATOS DESMENUZADOS PARA HACER UN DATA SET DE PANDAS
-
-
 # Django imports
 from django.shortcuts import render,get_object_or_404
 from django.views import View
+from django.core.files import File
 from django.http import HttpResponse
 from django.utils import timezone
 from django.contrib.gis.geos import Point
+from django.core.files.storage import default_storage
 from django.core.paginator import Paginator, EmptyPage
 from django.http import JsonResponse
 # Utilitis
+import os
 import csv
 import pandas as pd
 import collections
 import re
 from .models import Dataset,Row
 import numpy as np
+
 
 # Create your views here.
 
@@ -44,6 +45,26 @@ class Csv(View):
                 'Upload_date': lista[i].date,
             }
 
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        time_of_request = timezone.now()
+
+
+        logger_info = {}
+        logger_info['ip'] = ip
+        logger_info['time'] = str(time_of_request)
+        logger_info['user'] = request.META['HTTP_USER_AGENT']
+
+        with open('./debug.log','a') as f:
+            myfile = File(f)
+            myfile.write('{}\n'.format(str(logger_info)))
+        
+
         return JsonResponse(context)
 
 
@@ -57,12 +78,11 @@ class Csv(View):
 
         # Validate file type
         if not csv_file.name.endswith('.csv'):
-            #return render(request,'csvapp/index.html',context={'message':"File is not csv"})
             return HttpResponse('File is not csv')
 
         # Validate file size
         if csv_file.multiple_chunks():
-            #return render(request,'csvapp/index.html',context={'message':"File is to heavy"})
+
             return HttpResponse('File is to heavy')
 
         # Pandas DataFrame 
@@ -72,7 +92,6 @@ class Csv(View):
         compare = lambda x, y: collections.Counter(x) == collections.Counter(y)
         headers = ['dataset_id', 'latitude', 'longitude', 'client_id', 'client_name']
         if not compare(df.columns.tolist(),headers):
-            #return render(request,'csvapp/index.html',context={'message':"Headers of file are invalid, need to be like so: 'dataset_id', 'latitude', 'longitude', 'client_id', 'client_name'"})
             return HttpResponse("Headers of file are invalid, need to be like so: 'dataset_id', 'latitude', 'longitude', 'client_id', 'client_name'")
         
 
@@ -85,12 +104,37 @@ class Csv(View):
         except Exception:
             pass
 
+        
 
-        ### We are working under the assumption that the former validations are enough and that the data will be delivered as expected
+        # Validating Data within the dataset 
+        if not df['dataset_id'].dtypes == 'int64':
+            return HttpResponse('dataset_id column needs to be integer type')
+
+
+        if df['latitude'].dtypes == 'int64':
+            pass
+        elif df['latitude'].dtypes == 'float64':
+            pass
+        else:
+            return HttpResponse('latitud column needs to be either integer or float')
+
+
+        if df['longitude'].dtypes == 'int64':
+            pass
+        elif df['longitude'].dtypes == 'float64':
+            pass
+        else:
+            return HttpResponse('longitude column needs to be either integer or float')
+
+        
+        if not df['client_id'].dtypes == 'int64':
+            return HttpResponse('dataset_id column needs to be integer type')
+
+
         upload_date = timezone.now()
         dataset = Dataset(name=dataset_name,date=upload_date)
         dataset.save()
-        
+
         df['point'] = df[['latitude','longitude']].values.tolist()
 
         
@@ -105,7 +149,24 @@ class Csv(View):
             row = Row(dataset_id=d, point=point_object, client_id=df.iloc[i, 3], client_name=df.iloc[i, 4])
             row.save()
 
-        #return render(request,'csvapp/index.html',context={'message':"salio"})
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        time_of_request = timezone.now()
+
+        logger_info = {}
+        logger_info['ip'] = ip
+        logger_info['time'] = str(time_of_request)
+        logger_info['user'] = request.META['HTTP_USER_AGENT']
+
+        with open('./debug.log', 'a') as f:
+            myfile = File(f)
+            myfile.write('{}\n'.format(str(logger_info)))
+
         return HttpResponse('To bien')
 
 class RowView(View):
@@ -124,7 +185,7 @@ class RowView(View):
 
         bundle = []
         paquete = {}
-        
+
         for i in range(len(lista)):
             point = [x for x in lista[i].point]
             bundle.append({
@@ -135,6 +196,39 @@ class RowView(View):
             })
 
         paquete['Data'] = bundle
-        
+
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        time_of_request = timezone.now()
+
+        logger_info = {}
+        logger_info['ip'] = ip
+        logger_info['time'] = str(time_of_request)
+        logger_info['user'] = request.META['HTTP_USER_AGENT']
+
+        with open('./debug.log', 'a') as f:
+            myfile = File(f)
+            myfile.write('{}\n'.format(str(logger_info)))
         return JsonResponse(paquete)
-        #return HttpResponse('holi')
+
+
+
+class TableView(View):
+
+    def get(dels,request):
+        context = []
+        
+        with open('./debug.log', 'r') as f:
+            myfile = File(f)
+            lineas = myfile.readlines()
+            for linea in lineas:
+                to_dict = eval(linea)
+                context.append(to_dict)
+        
+        
+        return render(request,'csvapp/index.html',{'lineas':context})

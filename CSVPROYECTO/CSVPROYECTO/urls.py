@@ -15,10 +15,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
-from csvapp.views import Csv,RowView
+from csvapp.views import Csv,RowView,TableView
 
 urlpatterns = [
     path('api/v1/datasets/',Csv.as_view()),
     path('api/v1/row/',RowView.as_view()),
+    path('',TableView.as_view()),
     path('admin/', admin.site.urls),
 ]
