@@ -26,7 +26,9 @@ class Csv(View):
         registros = Dataset.objects.all()
         p = Paginator(registros, 5)
         page_num = request.GET.get('page',1)
-        message = 'http://127.0.0.1:8000/api/v1/datasets/?page='+str(page_num+1)
+        valor = int(page_num)+1
+        valor = str(valor)
+        message = 'http://127.0.0.1:8000/api/v1/datasets/?page='+valor
         
         try:
             page = p.page(page_num)
