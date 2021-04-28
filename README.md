@@ -45,6 +45,7 @@ Connect to the database with:
     \c 'databasename';
 
 Let's allow our data base to use PostGIS
+
     CREATE EXTENSION postgis;
 
 Create a user and grant it full access to the data base 
